@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <xinput.h>
+#include <dsound.h>
 
 // TODO(jordan): put these in some sort of resource file
 #define internal static
@@ -22,9 +23,11 @@ typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef int32 bool32;
 
 struct win32_offscreen_buffer
 {
+	// NOTE(jordan): Pixels are always 32-bits wide. Memory order BB GG RR XX
 	BITMAPINFO Info;
 	void *Memory;
 	int Width;
@@ -41,7 +44,7 @@ struct win32_window_dimension
 };
 
 // TODO(jordan): this is golbal for now
-global_variable bool Running;
+global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 
 // NOTE(jordan): XInputGetState
@@ -49,7 +52,7 @@ global_variable win32_offscreen_buffer GlobalBackBuffer;
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-	return (0);
+	return (ERROR_DEVICE_NOT_CONNECTED);
 }
 global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
@@ -59,20 +62,111 @@ global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-	return(0);
+	return(ERROR_DEVICE_NOT_CONNECTED);
 }
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
 internal void
 Win32LoadXInput(void)
 {
-	HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+	// NOTE(jordan): test this on a windows 8 machine
+	HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+	if(!XInputLibrary)
+	{
+		HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+	}
+
 	if(XInputLibrary)
 	{
 		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+		if(!XInputGetState) { XInputGetState = XInputGetStateStub; }
 		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+		if(!XInputSetState) { XInputSetState = XInputSetStateStub; }
 	}
+}
+
+internal void
+Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
+{
+	HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+
+	if(DSoundLibrary)
+	{
+		direct_sound_create *DirectSoundCreate = (direct_sound_create *)
+		  GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+
+		LPDIRECTSOUND DirectSound;
+		if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+		{
+			WAVEFORMATEX WaveFormat = {};
+			WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+			WaveFormat.nChannels = 2;
+			WaveFormat.nSamplesPerSec = SamplesPerSecond;
+			WaveFormat.wBitsPerSample = 16;
+			WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
+			WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;					
+			WaveFormat.cbSize = 0;
+
+			if(SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+			{
+				DSBUFFERDESC BufferDescription = {};
+				BufferDescription.dwSize = sizeof(BufferDescription);
+				BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+				// NOTE(jordan): create a primary buffer
+				LPDIRECTSOUNDBUFFER PrimaryBuffer;
+				if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+				{
+					HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat);
+					if(SUCCEEDED(Error))
+					{
+						// NOTE(jordan): the format has been set of direct sound
+						OutputDebugStringA("Primary buffer format was set.\n");
+					}
+					else
+					{
+						// TODO(jordan): diagnostic
+					}
+
+				}
+				else
+				{
+					// TODO(jordan): diagnostic
+				}
+			}
+			else
+			{
+				// TODO(jordan): Diagnostic
+			}
+
+			DSBUFFERDESC BufferDescription = {};
+			BufferDescription.dwSize = sizeof(BufferDescription);
+			BufferDescription.dwFlags = 0;
+			BufferDescription.dwBufferBytes = BufferSize;
+			BufferDescription.lpwfxFormat = &WaveFormat;
+			LPDIRECTSOUNDBUFFER SecondaryBuffer;
+			HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0);
+			if(SUCCEEDED(Error))
+			{
+				OutputDebugStringA("Secondary Buffer created successfully. \n");
+			}
+
+			// NOTE(jordan): start playing
+		}
+		else
+		{
+			// TODO(jordan): Diagnostics
+		}
+	}
+	else
+	{
+		// TODO(jordan): Diagnostics
+	}
+
 }
 
 win32_window_dimension
@@ -185,7 +279,7 @@ Win32MainWindowCallback(HWND   Window,
 		case  WM_CLOSE:
 		{
 			//TODO(jordan): handle this with a message to the user?
-			Running = false;
+			GlobalRunning = false;
 		} break;
 
 		case WM_ACTIVATEAPP:
@@ -196,7 +290,7 @@ Win32MainWindowCallback(HWND   Window,
 		case WM_DESTROY:
 		{
 			//TODO(jordan): handle this as an error - recreate window?
-			Running = false;
+			GlobalRunning = false;
 		} break;
 	
 		case WM_SYSKEYDOWN:
@@ -257,17 +351,18 @@ Win32MainWindowCallback(HWND   Window,
 				{
 				}
 			}
+
+			bool32 AltKeyWasDown = ((LParam & (1 << 29)) != 0);
+			if((VKCode == VK_F4) && AltKeyWasDown)
+			{
+				GlobalRunning = false;
+			}
 		} break;
 
 		case WM_PAINT:
 		{
 			PAINTSTRUCT Paint;
 			HDC DeviceContext = BeginPaint(Window, &Paint);
-			int X = Paint.rcPaint.left;
-			int Y = Paint.rcPaint.top;
-			int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-			int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-
 			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 			Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, 
 									   Dimension.Width, Dimension.Height);
@@ -329,15 +424,17 @@ WinMain(HINSTANCE Instance,
   				int XOffset = 0;
   				int YOffset = 0;
 
-  				Running = true;
-  				while(Running)
+  				Win32InitDSound(Window, 48000, 48000*sizeof(int16)*2);
+
+  				GlobalRunning = true;
+  				while(GlobalRunning)
   				{
   					MSG Message;
   					while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
   					{
   						if(Message.message == WM_QUIT)
   						{
-  							Running = false;
+  							GlobalRunning = false;
   						}
 
   						TranslateMessage(&Message);
@@ -383,8 +480,8 @@ WinMain(HINSTANCE Instance,
   						}
   					}
 
-  					/*
-  					XINPUT_VIBRATION Vibration;
+  					
+  					/*XINPUT_VIBRATION Vibration;
   					Vibration.wLeftMotorSpeed = 60000;
   					Vibration.wRightMotorSpeed = 60000;
   					XInputSetState(0, &Vibration); */
