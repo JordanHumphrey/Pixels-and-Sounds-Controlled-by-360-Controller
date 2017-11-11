@@ -13,8 +13,8 @@ Free time project for making a game engine on winOS
 ###### Download the .exe and plug in a Xbox controller (preferably 360 as was tested for) and move the Left Thumb-Stick.
 ###### Video file plays sound and shows control of image render via controller thumb stick.
 
-###### --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+             
 ###### Updates are as follows for (11/5/2017)
 
 ###### 1) Changed XInput get/set state stub(s) to return the corerect error code from Windows, as returning Zero from them actually says it succeeded
