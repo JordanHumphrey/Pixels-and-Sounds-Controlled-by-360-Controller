@@ -5,7 +5,7 @@ Free time project for making a game engine on winOS
              
 ###### Updates are as follows for (11/15/2017)
 
-###### 1) Simplified and abstracted DirectSound from main function.
+###### 1) Simplified and abstracted DirectSound from main function, fixed audio glitches such as skipping and writing in buffer.
 ###### 2) Implemented sine wave audio output controled via Left thumb stick.
 ###### 3) Added performance frequency to see how long each frame takes to generate.
 
