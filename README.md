@@ -1,17 +1,22 @@
 # Game-Engine
 Free time project for making a game engine on winOS
 
+###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+             
+###### Updates are as follows for (11/15/2017)
+
+###### 1) Simplified and abstracted DirectSound from main function.
+###### 2) Implemented sine wave audio output controled via Left thumb stick.
+###### 3) Added performance frequency to see how long each frame takes to generate.
+
+###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 ###### Updates are as follows for (11/8/2017)
 
 ###### 1) Updated DirectSound functionality, added testing for sound
 ###### 2) Compartmentalized a few commonly used attributes
 ###### 3) Changed pixel-offset(x,y) control to LThumb stick on 360 controller
 ###### 4) Abstraction and clean up will take place very soon, getting additional core components working
-
-######  Currently, an executable does work as intended, and is available here. win32_engine.cpp is a constant work in progress, and is the first file in the entirety of the engine.
-
-###### Download the .exe and plug in a Xbox controller (preferably 360 as was tested for) and move the Left Thumb-Stick.
-###### Video file plays sound and shows control of image render via controller thumb stick.
 
 ###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
              
