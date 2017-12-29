@@ -2,7 +2,14 @@
 Free time project for making a game engine on winOS
 
 ###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-             
+
+This project will be on hold until the end of January 2018. I have begun learning about large-scale c++ software design, and after finishing this gain in knowledge and information, I will return to daily work on this project. After realising gaps in knowledge I deem pertinent to my career as a Game (Engine) Programmer from my 4 years of university, I am filling in gaps that my Major could not fill for me, and in some cases refused to assist in, to provide myself with a solid foundation before graduation in May 2018. Material I am reading is listed below.
+
+Game Programming Patterns, Game Programming Gems Vol. 1 and Vol. 2, Large-scale C+ Software Design, Design Patterns: Elements of Reusable Object-Oriented Software, 
+Real-Time Rendering, Third Edition, Core Techniques and Algorithms in Game Programming.
+
+###### ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 ###### Updates are as follows for (11/15/2017)
 
 ###### 1) Simplified and abstracted DirectSound from main function, fixed audio glitches such as skipping and writing in buffer.
